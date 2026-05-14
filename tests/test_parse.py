@@ -1,5 +1,6 @@
 import datetime as date
 
+
 from nldate import parse
 
 
@@ -8,7 +9,7 @@ class Tests:
         assert date.datetime(2025, 10, 10) == date.datetime(2025, 10, 10)
 
     def test_one(self):
-        assert parse("October 12, 2025") == date(2025, 10, 12)
+        assert parse("October 12, 2025") == date.datetime(2025, 10, 12)
 
     # def test_two(self):
     #     assert parse("Last week", date(2024, 2, 16)) == date(2024, 2, 9)
