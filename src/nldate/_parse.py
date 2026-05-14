@@ -2,7 +2,7 @@ import calendar
 import re
 from datetime import date, timedelta
 
-_WEEKDAYS: dict[str, int] = {
+weekdays_dict: dict[str, int] = {
     "monday": 0,
     "tuesday": 1,
     "wednesday": 2,
@@ -12,7 +12,7 @@ _WEEKDAYS: dict[str, int] = {
     "sunday": 6,
 }
 
-_MONTHS: dict[str, int] = {
+month_dict: dict[str, int] = {
     "january": 1,
     "february": 2,
     "march": 3,
@@ -39,9 +39,9 @@ _MONTHS: dict[str, int] = {
     "dec": 12,
 }
 
-_WEEK_UNITS = ("week", "weeks", "day", "days", "month", "months", "year", "years")
+week_dict = ("week", "weeks", "day", "days", "month", "months", "year", "years")
 
-_WORD_NUM: dict[str, int] = {
+word_num_dict: dict[str, int] = {
     "one": 1,
     "two": 2,
     "three": 3,
@@ -71,19 +71,19 @@ _WORD_NUM: dict[str, int] = {
     "ninety": 90,
 }
 
-_WORD_PAT = "(?:" + "|".join(_WORD_NUM) + ")"
+re_word_pattern = "(?:" + "|".join(word_num_dict) + ")"
 
 
 def _to_int(s: str) -> int:
     s = s.strip().lower()
-    if s in _WORD_NUM:
-        return _WORD_NUM[s]
+    if s in word_num_dict:
+        return word_num_dict[s]
     if s == "a":
         return 1
     return int(s)
 
 
-def _add_months(d: date, months: int) -> date:
+def _addmonth_dict(d: date, months: int) -> date:
     total = d.month - 1 + months
     y = d.year + total // 12
     m = total % 12 + 1
@@ -98,66 +98,59 @@ def _apply_offset(d: date, n: int, unit: str, direction: str) -> date:
         if unit == "week":
             return d - timedelta(weeks=n)
         if unit == "month":
-            return _add_months(d, -n)
+            return _addmonth_dict(d, -n)
         if unit == "year":
-            return _add_months(d, -n * 12)
+            return _addmonth_dict(d, -n * 12)
     else:
         if unit == "day":
             return d + timedelta(days=n)
         if unit == "week":
             return d + timedelta(weeks=n)
         if unit == "month":
-            return _add_months(d, n)
+            return _addmonth_dict(d, n)
         if unit == "year":
-            return _add_months(d, n * 12)
+            return _addmonth_dict(d, n * 12)
     return d
 
 
 def _parse_absolute(s: str) -> date | None:
     s = s.strip()
 
-    # "December 1st, 2025" / "Dec. 1, 2025"
-    m = re.match(
-        r"([a-zA-Z]+)\.?\s*(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*(\d{4})",
-        s,
-    )
+    m = re.match(r"([a-zA-Z]+)\.?\s*(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*(\d{4})", s)
+
     if m:
         month_name = m.group(1).lower()
-        if month_name in _MONTHS:
-            return date(int(m.group(3)), _MONTHS[month_name], int(m.group(2)))
+        if month_name in month_dict:
+            return date(int(m.group(3)), month_dict[month_name], int(m.group(2)))
 
-    # "the 1st of December, 2025"
     m = re.match(
         r"the\s+(\d{1,2})(?:st|nd|rd|th)?\s+of\s+([a-zA-Z]+)\.?\s*,?\s*(\d{4})",
         s,
         re.IGNORECASE,
     )
+
     if m:
         month_name = m.group(2).lower()
-        if month_name in _MONTHS:
-            return date(int(m.group(3)), _MONTHS[month_name], int(m.group(1)))
+        if month_name in month_dict:
+            return date(int(m.group(3)), month_dict[month_name], int(m.group(1)))
 
-    # "1 December 2025" / "1st December 2025" / "1 of December 2025"
     m = re.match(
-        r"(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?([a-zA-Z]+)\.?\s*,?\s*(\d{4})",
-        s,
+        r"(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?([a-zA-Z]+)\.?\s*,?\s*(\d{4})", s
     )
+
     if m:
         month_name = m.group(2).lower()
-        if month_name in _MONTHS:
-            return date(int(m.group(3)), _MONTHS[month_name], int(m.group(1)))
+        if month_name in month_dict:
+            return date(int(m.group(3)), month_dict[month_name], int(m.group(1)))
 
-    # "2025/12/04" / "2025/12/3"
     m = re.match(r"(\d{4})/(\d{1,2})/(\d{1,2})", s)
     if m:
         return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
 
-    # "3/14/2024"
     m = re.match(r"(\d{1,2})/(\d{1,2})/(\d{4})", s)
     if m:
         return date(int(m.group(3)), int(m.group(1)), int(m.group(2)))
 
-    # "2024-12-25"
     m = re.match(r"(\d{4})-(\d{2})-(\d{2})", s)
     if m:
         return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
@@ -168,26 +161,29 @@ def _parse_absolute(s: str) -> date | None:
 def _parse_relative(s: str, today: date) -> date | None:
     s = s.strip().lower()
 
-    # Exact phrases
     if s == "today":
         return today
+
     if s == "yesterday":
         return today - timedelta(days=1)
+
     if s == "tomorrow":
         return today + timedelta(days=1)
+
     if s in ("the day after tomorrow", "day after tomorrow"):
         return today + timedelta(days=2)
+
     if s in ("the day before yesterday", "day before yesterday"):
         return today - timedelta(days=2)
 
-    # "next Tuesday" / "last Friday" / "this Wednesday"
     m = re.match(
         r"(next|last|this)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)",
         s,
     )
+
     if m:
         modifier = m.group(1)
-        target = _WEEKDAYS[m.group(2)]
+        target = weekdays_dict[m.group(2)]
         current = today.weekday()
         if modifier == "next":
             days_ahead = target - current
@@ -211,7 +207,7 @@ def _parse_relative(s: str, today: date) -> date | None:
         s,
     )
     if m:
-        target = _WEEKDAYS[m.group(1)]
+        target = weekdays_dict[m.group(1)]
         current = today.weekday()
         days_ahead = target - current
         if days_ahead < 0:
@@ -222,7 +218,7 @@ def _parse_relative(s: str, today: date) -> date | None:
         r"this\s+past\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)", s
     )
     if m:
-        target = _WEEKDAYS[m.group(1)]
+        target = weekdays_dict[m.group(1)]
         current = today.weekday()
         days_behind = current - target
         if days_behind <= 0:
@@ -238,16 +234,16 @@ def _parse_relative(s: str, today: date) -> date | None:
             if unit == "week":
                 return today + timedelta(weeks=1)
             if unit == "month":
-                return _add_months(today, 1)
+                return _addmonth_dict(today, 1)
             if unit == "year":
-                return _add_months(today, 12)
+                return _addmonth_dict(today, 12)
         else:
             if unit == "week":
                 return today - timedelta(weeks=1)
             if unit == "month":
-                return _add_months(today, -1)
+                return _addmonth_dict(today, -1)
             if unit == "year":
-                return _add_months(today, -12)
+                return _addmonth_dict(today, -12)
 
     # "in a day" / "in a week" / "in a month" / "in a year"
     m = re.match(r"in\s+a\s+(day|week|month|year)", s)
@@ -258,13 +254,14 @@ def _parse_relative(s: str, today: date) -> date | None:
         if unit == "week":
             return today + timedelta(weeks=1)
         if unit == "month":
-            return _add_months(today, 1)
+            return _addmonth_dict(today, 1)
         if unit == "year":
-            return _add_months(today, 12)
+            return _addmonth_dict(today, 12)
 
     # "in 3 days" / "in 2 weeks" / "in one month"
     m = re.match(
-        rf"in\s+({_WORD_PAT}|\d+)\s+(day|days|week|weeks|month|months|year|years)", s
+        rf"in\s+({re_word_pattern}|\d+)\s+(day|days|week|weeks|month|months|year|years)",
+        s,
     )
     if m:
         n = _to_int(m.group(1))
@@ -279,7 +276,7 @@ def _parse_relative(s: str, today: date) -> date | None:
 
     # "3 days from now" / "two weeks from today"
     m = re.match(
-        rf"({_WORD_PAT}|\d+)\s+(day|days|week|weeks|month|months|year|years)\s+from\s+(now|today)",
+        rf"({re_word_pattern}|\d+)\s+(day|days|week|weeks|month|months|year|years)\s+from\s+(now|today)",
         s,
     )
     if m:
@@ -295,7 +292,8 @@ def _parse_relative(s: str, today: date) -> date | None:
 
     # "3 days ago" / "two weeks ago" / "1 month ago"
     m = re.match(
-        rf"({_WORD_PAT}|\d+)\s+(day|days|week|weeks|month|months|year|years)\s+ago", s
+        rf"({re_word_pattern}|\d+)\s+(day|days|week|weeks|month|months|year|years)\s+ago",
+        s,
     )
     if m:
         n = _to_int(m.group(1))
@@ -311,7 +309,7 @@ def _parse_relative(s: str, today: date) -> date | None:
 
     # "3 days earlier" / "two weeks later"
     m = re.match(
-        rf"({_WORD_PAT}|\d+)\s+(day|days|week|weeks|month|months|year|years)\s+(earlier|later)",
+        rf"({re_word_pattern}|\d+)\s+(day|days|week|weeks|month|months|year|years)\s+(earlier|later)",
         s,
     )
     if m:
@@ -322,7 +320,7 @@ def _parse_relative(s: str, today: date) -> date | None:
 
     # "a day back" / "three days back"
     m = re.match(
-        rf"(a|{_WORD_PAT}|\d+)\s+(day|days|week|weeks|month|months|year|years)\s+back",
+        rf"(a|{re_word_pattern}|\d+)\s+(day|days|week|weeks|month|months|year|years)\s+back",
         s,
     )
     if m:
@@ -352,7 +350,7 @@ def _resolve_date(s: str, today: date) -> date:
         ref_text = m.group(3).strip()
 
         components = re.findall(
-            rf"(a|{_WORD_PAT}|\d+)\s+(day|days|week|weeks|month|months|year|years)",
+            rf"(a|{re_word_pattern}|\d+)\s+(day|days|week|weeks|month|months|year|years)",
             offset_text,
             re.IGNORECASE,
         )
